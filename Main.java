@@ -3,7 +3,7 @@ import java.util.*;
 class Main {
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
-        User user1 = new User(2344.5, "Aditya", 101);
+        User user1 = new User(100000.5, "Aditya", 101);
         Market market = new Market();
         Stock stock1 = new Stock("@", "apple", 2345, 2.5);
         Crypto crypto1 = new Crypto("#", "SOLANA", 114920, "SOL MAINET");

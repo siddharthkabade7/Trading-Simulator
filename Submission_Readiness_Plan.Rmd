@@ -1,0 +1,125 @@
+---
+title: "Trading Simulator: Submission Readiness Plan"
+author: "Mini Project Team"
+date: "2026-10-11"
+output:
+  html_document:
+    toc: true
+    number_sections: true
+---
+
+# Executive Summary
+
+**Current status: not fully submission-ready.** The project compiles and starts, but the current test report records that the seeded balance (`2344.50`) is below the cheapest whole-unit asset price (`2345.00`), so a successful trade cannot be demonstrated with the default data. The Market/Admin option is also unfinished, and several failure cases need clearer handling.
+
+Use this plan to finish and verify the core workflows before recording the demonstration. A completed checklist does not guarantee a mark; the team must also explain the design and answer questions during the oral assessment.
+
+# Improvements to Make
+
+## Priority 1: Make a Successful Trade Demonstrable
+
+The current starting balance is `2344.5`, while Apple costs `2345.0` per unit and the order quantity is an integer. Choose demo data that permits at least one buy without making the balance or price unrealistic. For example, raise the initial balance in `Main.java` to an amount sufficient for several trades, then document the chosen scenario.
+
+Verify the same run shows all of the following:
+
+- A successful buy reduces the balance by `price * quantity`.
+- The portfolio contains the purchased quantity and correct average price.
+- A second buy updates the quantity and weighted average correctly.
+- A partial sell credits the balance and leaves the expected quantity.
+- A cancelled order changes neither balance nor portfolio.
+
+## Priority 2: Validate Orders Before Changing State
+
+In `Main.java`, look up the symbol and check that the asset exists before constructing an `Order`. Give the user a retryable message for an unknown symbol instead of exposing a null-reference exception.
+
+In `TradingEngine.java`, make the order flow consistent:
+
+- Reject invalid quantities and non-tradable assets before recording an accepted order.
+- Check buying power before withdrawing funds; check holdings before selling.
+- Decide how rejected orders appear in history. Either do not store rejected orders or add an explicit rejected status and reason. Do not leave a failed order looking `PENDING`.
+- Ensure a failed operation cannot update only the balance or only the portfolio.
+- Record a `Transaction` only after successful execution.
+
+Keep the order status, user history, balance, and portfolio consistent on every failure path.
+
+## Priority 3: Finish the Advertised Menu
+
+The main menu includes `Market/Admin`, but selecting it currently does not provide an admin workflow. Implement a small in-memory admin menu with:
+
+- List current assets.
+- Add an asset with a nonblank, unique symbol and valid positive price.
+- Update an existing asset price with a valid positive value.
+- Return to the main menu cleanly.
+
+If admin functionality is outside the intended project scope, remove the menu option and describe the reduced scope accurately instead. Do not claim that data persists after the application exits.
+
+## Priority 4: Improve Input and Model Boundaries
+
+- Handle non-numeric menu input without terminating the application. Prefer reading a complete line and parsing it with a retry loop.
+- Handle empty portfolio and empty order history with clear messages.
+- Make `Tradable` express a useful contract that `TradingEngine` actually uses. The current engine checks `instanceof Tradable` but does not call `canTrade()`; avoid an interface method whose only effect is printing text.
+- Avoid returning mutable internal maps from `Market` and `User`. Provide focused operations or an unmodifiable view/copy for display.
+- Keep `Main` focused on console input/output and keep trade rules in `TradingEngine` and portfolio rules in `Portfolio`/`Position`.
+
+## Optional Polish After Core Behavior Works
+
+The project uses `double` for prices and balances. For stronger monetary accuracy, consider `BigDecimal`, constructed from decimal strings and used with a documented scale and rounding policy. This change touches several classes; do it only if there is enough time to update and retest every calculation. It is better to submit a verified core workflow than an incomplete broad rewrite.
+
+# Verification Checklist
+
+Run these checks after implementing the improvements. Record the actual result; do not mark a test as passing without observing it.
+
+| Check | Expected result | Result |
+|---|---|---|
+| Compile all Java sources | `javac *.java` completes without errors | Pending |
+| Start and exit | Main menu appears and exit works | Pending |
+| View market, balance, portfolio, and history | Correct values appear; empty collections have clear messages | Pending |
+| Buy a valid asset | Balance, position quantity, average price, and order status are correct | Pending |
+| Buy the same asset again | Quantity and weighted average are correct | Pending |
+| Sell part of a position | Proceeds and remaining quantity are correct | Pending |
+| Sell more than held | Clear error; balance and portfolio stay unchanged | Pending |
+| Buy with insufficient funds | Clear rejection; no misleading pending order or partial state change | Pending |
+| Use an unknown symbol | Friendly retryable message; application does not crash | Pending |
+| Enter zero/negative quantity | Clear rejection; no state changes | Pending |
+| Enter letters at a numeric prompt | Input is rejected and the application continues | Pending |
+| Cancel a pending order | Status is `CANCELLED`; balance and portfolio do not change | Pending |
+| Use admin add/update actions | Valid change is visible; invalid/duplicate data is rejected | Pending |
+
+From the project directory, use:
+
+```sh
+javac *.java
+java Main
+```
+
+If the project has automated tests, run them too and include their command and result. The execution report should be updated with observed results after fixes; the existing report describes the current baseline, not the final version.
+
+# Demonstration Video
+
+Prepare a short recording with clear narration and readable terminal output:
+
+1. Introduce the project as an in-memory Java console trading simulator and state what it does not implement, such as persistent storage or live market prices.
+2. Briefly show the main classes: `Asset`, `Stock`, `Crypto`, `Market`, `Portfolio`, `Order`, and `TradingEngine`.
+3. Run the application and show the market and starting balance.
+4. Execute one successful buy and explain the resulting balance and portfolio.
+5. Buy more of the same asset or sell part of the position and explain the resulting quantity/average.
+6. Show one cancellation and one invalid case, confirming that state remains consistent.
+7. If implemented, demonstrate adding or updating an asset through the admin menu.
+8. Close with one known limitation and a sensible next improvement.
+
+Rehearse the exact inputs first. Do not include credentials, personal data, or claims about features that are not implemented.
+
+# GitHub and Submission Checklist
+
+- [ ] Keep the source files and relevant project documentation in the repository.
+- [ ] Remove generated `.class` files from the deliverable if the course expects source-only submission; retain them only if specifically required.
+- [ ] Compile and run from a clean checkout using the documented commands.
+- [ ] Review `git status` and commit the intended final files.
+- [ ] Push the final commit to the correct GitHub repository and verify the files are visible there.
+- [ ] Record the mini-project video: introduction followed by feature execution demonstration.
+- [ ] Add the GitHub repository URL to the shared sheet with the project title and every team member's name.
+- [ ] Confirm the practical batch submission timing with the instructor; the notice gives the dates as 13-15 October 2026.
+
+# Ready-to-Submit Criteria
+
+Treat the project as ready when the core buy/sell/cancel flows pass, the admin menu is either implemented or removed from the advertised scope, the invalid-input cases fail safely, the execution report reflects the final code, and another team member can run the project using the documented commands. Separately confirm the video, GitHub push, and shared-sheet entry are complete.
