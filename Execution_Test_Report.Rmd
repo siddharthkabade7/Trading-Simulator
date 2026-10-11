@@ -1,0 +1,191 @@
+---
+title: "Trading Simulator: Compile and Execution Test Report"
+author: "Project Verification Report"
+date: "2026-10-10"
+output:
+  html_document:
+    toc: true
+    number_sections: true
+---
+
+# Executive Summary
+
+The project **compiles successfully** with `javac *.java` and starts with `java Main`. Basic menu navigation, viewing the seeded market and balance, order cancellation, and application exit were exercised using scripted console input.
+
+**Overall result: partially functional; not all advertised behavior is working.** A successful buy or sell could not be demonstrated with the current starting data: the user starts with `2344.50`, while the cheapest listed asset costs `2345.00` per unit and the simulator only accepts whole-number quantities. An attempted buy correctly prints an insufficient-balance message, but its order remains in history as `PENDING`. Unknown symbols are caught but produce a raw null-reference message. The Market/Admin option is unimplemented and returns to the main menu.
+
+# Test Environment and Commands
+
+Tests were run in the project directory on Linux using the installed Java compiler/runtime. Compile and launch commands:
+
+```sh
+javac *.java
+java Main
+```
+
+The compile command produced no diagnostics and returned successfully. Runtime scenarios below were supplied as console input to `java Main` to exercise reproducible paths.
+
+# Results
+
+| Test | Result | Observed behavior |
+|---|---|---|
+| Compile all Java files | **PASS** | `javac *.java` completed without errors. |
+| Launch simulator | **PASS** | Title and main menu appeared. |
+| View balance, portfolio, and market | **PASS** | Initial balance was `2344.5`; portfolio was empty; Apple (`@`) was `2345.0`, SOLANA (`#`) was `114920.0`. |
+| Attempt to buy one Apple | **LIMITED** | Execution was rejected for insufficient balance. Starting funds are `0.50` below the cheapest whole-unit purchase. |
+| Cancel pending order | **PASS** | Cancellation message appeared and status became `CANCELLED`. |
+| Inspect failed/cancelled orders | **ISSUE** | Failed execution remained `PENDING`; the cancelled order was `CANCELLED`. |
+| Enter unknown symbol | **PARTIAL** | App continued and allowed retry, but printed a raw null-reference error rather than a friendly validation message. |
+| Select Market/Admin | **FAIL / NOT IMPLEMENTED** | No admin menu or action appeared; main menu was displayed again. |
+| Sell an asset with empty portfolio | **PASS** | Printed `Portfolio is empty.` |
+| Exit | **PASS** | Returned from the user menu and exited the main loop. |
+
+# Captured Runtime Output
+
+## Basic Menu and Trade Attempt
+
+The following run viewed balance, portfolio, and market; tried to buy one Apple; cancelled a subsequent pending order; selected sell while the portfolio was empty; then exited.
+
+```text
+========================================
+           TRADING SIMULATOR
+========================================
+ 1. USER
+ 2. Market/Admin
+ 3. Exit
+Enter The Choice :
+========================================
+               USER MENU
+========================================
+ 1. View Balance
+ 2. View portfolio
+ 3. View Market
+ 4. Buy Asset
+ 5. Sell Asset
+ 6. View Order History
+ 7. Back
+Enter The Option :User Balance :2344.5
+Enter The Option :User Portfolio :
+Enter The Option :Market :
+========================================
+Asset :apple
+Symbol :@
+Price :2345.0
+========================================
+========================================
+Asset :SOLANA
+Symbol :#
+Price :114920.0
+========================================
+Enter The Option :Market
+1.@->apple->2345.0
+2.#->SOLANA->114920.0
+Enter The Symbol Of Company : How much Asset Do You Want To Purchase :
+========================================
+1. BUY
+2. CANCEL
+========================================
+Enter the choice: Insfficient Balance
+Enter The Symbol Of Company : How much Asset Do You Want To Purchase :
+========================================
+1. BUY
+2. CANCEL
+========================================
+Enter the choice: Order Cancelled
+Enter The Option :Portfolio
+Portfolio is empty.
+Enter The Option :Exiting The System...
+ 1. USER
+ 2. Market/Admin
+ 3. Exit
+Enter The Choice :
+```
+
+The message contains the source-code spelling `Insfficient Balance`.
+
+## Order History After Failed Execution
+
+A separate run attempted to execute an unaffordable order, cancelled the next order, and viewed order history:
+
+```text
+Enter the choice: Insfficient Balance
+Enter The Symbol Of Company : How much Asset Do You Want To Purchase :
+========================================
+1. BUY
+2. CANCEL
+========================================
+Enter the choice: Order Cancelled
+Enter The Option :========================================
+1->BUY->apple->1->PENDING
+========================================
+========================================
+2->BUY->apple->1->CANCELLED
+========================================
+```
+
+This verifies that `placeOrder()` records the order before execution. When execution throws for insufficient balance, status is not changed, leaving a `PENDING` order that did not execute.
+
+## Unknown Symbol
+
+A separate run entered `?` as an asset symbol, then retried with a listed symbol and cancelled:
+
+```text
+Enter The Symbol Of Company : How much Asset Do You Want To Purchase :
+Cannot invoke "Asset.getPrice()" because "<parameter1>" is null
+Enter The Symbol Of Company : How much Asset Do You Want To Purchase :
+========================================
+1. BUY
+2. CANCEL
+========================================
+Enter the choice: Order Cancelled
+```
+
+The console catches the exception and continues, but the error is not user-friendly. The underlying issue is that `market.getAsset(symbol)` returns `null`, and `Order` immediately calls `asset.getPrice()`.
+
+## Market/Admin Selection
+
+Input `2` followed by `3` produced the main menu twice, with no admin actions or explanation between menus:
+
+```text
+========================================
+           TRADING SIMULATOR
+========================================
+ 1. USER
+ 2. Market/Admin
+ 3. Exit
+Enter The Choice : 1. USER
+ 2. Market/Admin
+ 3. Exit
+Enter The Choice :
+```
+
+# Assessment
+
+## What Works
+
+- All Java sources compile together.
+- Application startup and primary menu rendering work.
+- User can view seeded balance, portfolio, and market data.
+- Positive-quantity order creation and pending-order cancellation were exercised.
+- Empty portfolio feedback and normal exit work.
+
+## Issues Found
+
+1. **No successful trade is possible with the seeded starting balance.** The user has `2344.5`; one Apple costs `2345.0`, and one SOLANA costs `114920.0`. The order quantity is an integer, so the smallest possible purchase exceeds available funds. This prevents verification of successful buy/sell state updates from the current menu setup.
+2. **Failed orders remain marked `PENDING`.** Orders are added to history before execution; an execution exception prevents the status from changing.
+3. **Unknown symbols cause an internal null-reference error.** Validate the lookup result before constructing an order and show a retryable message.
+4. **Market/Admin is advertised but unimplemented.** Selecting option 2 immediately redisplays the main menu.
+5. **Money uses floating-point types.** For more reliable monetary arithmetic, use `BigDecimal` with a documented scale and rounding policy.
+6. **Input validation is incomplete.** Non-numeric menu input was not included in this run; `Scanner.nextInt()` can throw if letters are entered.
+
+# Recommended Fixes Before Submission
+
+1. Adjust seeded balance or asset prices so at least one whole-unit buy is affordable, then test successful buy, partial sell, and resulting balance/portfolio values.
+2. Validate asset existence before creating an order; report unknown symbols without exposing exception text.
+3. Define a failure state or defer adding orders to history until order validation succeeds. Ensure execution failures cannot leave misleading pending orders or partially update account state.
+4. Implement the advertised admin menu (at minimum list assets, add an asset, and update a price), or remove the option if it is outside project scope.
+5. Add tests for successful buy/sell, insufficient balance, insufficient holdings, invalid quantity, unknown symbol, cancellation, and weighted average calculation.
+
+# Final Verdict
+
+**Compilation: Pass. Basic console execution: Pass. Complete functional verification: Not passed.** The program runs and several viewing/navigation paths work, but the seeded data prevents a successful trade, the admin feature is absent, and order/symbol error handling needs improvement. After addressing these issues, rerun the tests and update this report with the new observed outputs.
